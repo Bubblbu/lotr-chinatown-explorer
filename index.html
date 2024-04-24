@@ -36,9 +36,10 @@
       <p><input v-model="debug" type="checkbox" /> Debug Mode</p>
 
       <table>
-        <tbody v-for="line in jsonl">
+        <tbody v-for="(line, index) in jsonl">
           <!-- Header Row with Address & PID -->
           <tr>
+            <td :rowspan="rowspanValue(line)">{{index+1}}</td>
             <td :rowspan="rowspanValue(line)">
               <strong>PID: </strong
               ><a
@@ -70,9 +71,7 @@
             <td></td>
           </tr>
           <tr>
-            <td>
-              Reported Address
-            </td>
+            <td>Reported Address</td>
             <td class="newline-breaks">
               {{ formatAddress(line.itemPid.reportingBodyForPid) }}
             </td>
@@ -81,9 +80,7 @@
             </td>
           </tr>
           <tr>
-            <td>
-              Head Office
-            </td>
+            <td>Head Office</td>
             <td class="newline-breaks">
               {{ formatAddress(line.itemPid.reportingBodyForPid, true) || 'N/A'
               }}
