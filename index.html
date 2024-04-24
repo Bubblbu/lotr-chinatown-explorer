@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+
+    <title>LOTR Explorer</title>
+
+    <style type="text/css">
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        margin: 1rem;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      tr:nth-child(2n) {
+        background-color: lightgray;
+      }
+      tbody tr:first-child {
+        border-top: 5px solid black;
+      }
+      td {
+        padding: 0.25rem 0.5rem;
+        vertical-align: top;
+      }
+      .newline-breaks {
+        white-space: pre-line;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <p><input v-model="debug" type="checkbox" /> Debug Mode</p>
+
+      <table>
+        <tbody v-for="line in jsonl">
+          <!-- Header Row with Address & PID -->
+          <tr>
+            <td :rowspan="rowspanValue(line)">
+              <strong>PID: </strong
+              ><a
+                :href="`https://opendata.vancouver.ca/explore/dataset/property-parcel-polygons/map/?disjunctive.streetname&q=${ line.itemId.replace(/-/g, '') }`"
+                rel="noopener noreferrer"
+                target="_blank"
+                >{{ line.itemId }}</a
+              >
+            </td>
+            <td>
+              Address: {{ line.address }}<br />
+              Land Value: ${{ formatPrice(line.value_land) }}<br />
+              Building Value: ${{ formatPrice(line.value_bldg) }}
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+
+          <!-- Reporting Body Row -->
+          <tr>
+            <td rowspan="3">
+              <strong>Reporting Body</strong>
+            </td>
+            <td>
+              <strong
+                >{{ formatName(line.itemPid.reportingBodyForPid) }}</strong
+              >
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              Reported Address
+            </td>
+            <td class="newline-breaks">
+              {{ formatAddress(line.itemPid.reportingBodyForPid) }}
+            </td>
+            <td v-if="debug">
+              <pre>{{ line.itemPid.reportingBodyForPid }}</pre>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              Head Office
+            </td>
+            <td class="newline-breaks">
+              {{ formatAddress(line.itemPid.reportingBodyForPid, true) || 'N/A'
+              }}
+            </td>
+            <td v-if="debug">&nbsp;</td>
+          </tr>
+
+          <!-- Corporation list -->
+          <tr v-for="(corp, index) in line.itemPid.corporationList">
+            <td
+              v-if="index === 0"
+              :rowspan="line.itemPid.corporationList.length"
+            >
+              <strong>Affiliated Corporations</strong>
+            </td>
+            <td>
+              <p>{{ formatName(corp) }}</p>
+            </td>
+            <td class="newline-breaks">{{ formatAddress(corp) }}</td>
+
+            <td v-if="debug"><pre>{{ corp }}</pre></td>
+          </tr>
+
+          <!-- Individual list -->
+          <tr v-for="(ind, index) in line.itemPid.individualList">
+            <td
+              v-if="index === 0"
+              :rowspan="line.itemPid.individualList.length"
+            >
+              <strong>Affiliated Individuals</strong>
+            </td>
+            <td>
+              <p>{{ formatName(ind) }}</p>
+            </td>
+            <td class="newline-breaks">{{ formatAddress(ind) }}</td>
+            <td v-if="debug"><pre>{{ ind }}</pre></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      createApp({
+        data() {
+          return {
+            debug: false,
+            jsonl: [],
+          };
+        },
+        mounted() {
+          fetch("ct_lotr.jsonl")
+            .then((x) => x.text())
+            .then((data) => {
+              this.jsonl = data
+                .split("\n")
+                .filter(Boolean)
+                .map((x) => {
+                  return JSON.parse(x);
+                })
+                .filter((x) => x.itemType === "PID")
+                .sort((a, b) => (a.itemId > b.itemId ? 1 : -1));
+            })
+            .catch(console.error);
+        },
+        methods: {
+          formatName(data) {
+            return [data.legalName, data.lastName, data.givenNames]
+              .filter(Boolean)
+              .join(", ");
+          },
+          formatAddress(data, headOffice) {
+            let fullAddress = headOffice
+              ? data.principalOrHeadOfficeAddress
+              : data.registeredAddress;
+
+            return [
+              fullAddress && fullAddress.line1,
+              fullAddress && fullAddress.line2,
+              fullAddress && fullAddress.city,
+              fullAddress &&
+                (fullAddress.provinceName || fullAddress.provinceCode),
+              fullAddress &&
+                (fullAddress.countryName || fullAddress.countryCode),
+              fullAddress && fullAddress.postalCode,
+
+              data.principalResidenceCity,
+              data.principalResidenceProvinceName,
+              data.principalResidenceCountryName,
+            ]
+              .filter(Boolean)
+              .join("\n");
+          },
+          formatPrice(value) {
+            let val = (value / 1).toFixed(2).replace(".", ",");
+            return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+          },
+          rowspanValue(line) {
+            return (
+              4 +
+              line.itemPid.corporationList.length +
+              line.itemPid.individualList.length
+            );
+          },
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
